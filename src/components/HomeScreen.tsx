@@ -105,7 +105,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
 
   useEffect(() => {
     const query = searchQuery.toLowerCase().trim();
-    const separators = [' to ', ' থেকে '];
+    if (!query) return;
+
+    // Support multiple separators for English and Bengali
+    const separators = [' to ', ' into ', ' in ', ' থেকে ', ' হতে ', ' তে ', ' এ '];
     let foundSeparator = '';
     
     for (const sep of separators) {
@@ -118,35 +121,76 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
     if (foundSeparator) {
       const parts = query.split(foundSeparator);
       if (parts.length === 2) {
-        const fromPart = parts[0].trim();
-        const toPart = parts[1].trim();
+        // Clean parts: remove numbers and extra spaces
+        // e.g., "5 meters" -> "meters"
+        const cleanPart = (p: string) => p.replace(/[0-9.]/g, '').trim();
+        const fromPart = cleanPart(parts[0]);
+        const toPart = cleanPart(parts[1]);
 
         if (fromPart && toPart) {
           // Find category that contains both units
           for (const catId of Object.keys(unitsMap)) {
             const units = unitsMap[catId];
+            
             const isMatch = (unit: Unit, queryPart: string) => {
               const nameEn = unit.nameEn.toLowerCase();
               const nameBn = unit.nameBn.toLowerCase();
               const symbol = unit.symbol.toLowerCase();
               
-              // Basic matches
-              if (nameEn === queryPart || nameBn === queryPart || symbol === queryPart) return true;
+              const q = queryPart.toLowerCase().trim();
+              if (!q) return false;
+
+              // 1. Direct matches
+              if (nameEn === q || nameBn === q || symbol === q) return true;
               
-              // Plural matches (simple)
-              if (nameEn + 's' === queryPart || nameEn + 'es' === queryPart) return true;
-              
-              // Common variations
-              if (nameEn === 'meter' && queryPart === 'metre') return true;
-              if (nameEn === 'meter' && queryPart === 'metres') return true;
-              if (nameEn === 'kilometer' && queryPart === 'kilometre') return true;
-              if (nameEn === 'kilometer' && queryPart === 'kilometres') return true;
-              if (nameEn === 'centimeter' && queryPart === 'centimetre') return true;
-              if (nameEn === 'centimeter' && queryPart === 'centimetres') return true;
-              if (nameEn === 'millimeter' && queryPart === 'millimetre') return true;
-              if (nameEn === 'millimeter' && queryPart === 'millimetres') return true;
-              if (nameEn === 'liter' && queryPart === 'litre') return true;
-              if (nameEn === 'liter' && queryPart === 'litres') return true;
+              // 2. Plural matches (common patterns)
+              const isPluralMatch = (base: string) => {
+                return base + 's' === q || 
+                       base + 'es' === q || 
+                       (base.endsWith('y') && base.slice(0, -1) + 'ies' === q);
+              };
+              if (isPluralMatch(nameEn)) return true;
+
+              // 3. Common Unit Variations (Meter/Metre, Liter/Litre)
+              const variations: Record<string, string[]> = {
+                'meter': ['metre', 'metres', 'meters'],
+                'kilometer': ['kilometre', 'kilometres', 'kilometers', 'km'],
+                'centimeter': ['centimetre', 'centimetres', 'centimeters', 'cm'],
+                'millimeter': ['millimetre', 'millimetres', 'millimeters', 'mm'],
+                'liter': ['litre', 'litres', 'liters', 'l'],
+                'gram': ['grams', 'gm', 'g'],
+                'kilogram': ['kilograms', 'kg'],
+                'inch': ['inches', 'in'],
+                'foot': ['feet', 'ft'],
+                'yard': ['yards', 'yd'],
+                'mile': ['miles', 'mi'],
+                'second': ['seconds', 'sec', 's'],
+                'minute': ['minutes', 'min', 'm'],
+                'hour': ['hours', 'hr', 'h'],
+                'celsius': ['centigrade', 'degree celsius', 'degree centigrade'],
+                'fahrenheit': ['degree fahrenheit'],
+              };
+
+              for (const [base, alts] of Object.entries(variations)) {
+                if (nameEn === base && alts.includes(q)) return true;
+              }
+
+              // 4. Currency common names mapping
+              const currencyMap: Record<string, string[]> = {
+                'USD': ['dollar', 'dollars', 'ডলার', 'ইউএস ডলার', 'ইউএসডি'],
+                'BDT': ['taka', 'tk', 'টাকা', 'বিডিটি'],
+                'INR': ['rupee', 'rupees', 'rupi', 'রুপি', 'ভারতীয় রুপি'],
+                'EUR': ['euro', 'euros', 'ইউরো'],
+                'GBP': ['pound', 'pounds', 'পাউন্ড', 'ব্রিটিশ পাউন্ড'],
+                'SAR': ['riyal', 'riyals', 'রিয়াল', 'সৌদি রিয়াল'],
+                'AED': ['dirham', 'dirhams', 'দিরহাম', 'আমিরাত দিরহাম'],
+                'CAD': ['canadian dollar', 'কানাডিয়ান ডলার'],
+                'AUD': ['australian dollar', 'অস্ট্রেলিয়ান ডলার'],
+                'CNY': ['yuan', 'ইউয়ান', 'চীনা ইউয়ান'],
+                'JPY': ['yen', 'ইয়েন', 'জাপানি ইয়েন'],
+              };
+
+              if (currencyMap[symbol.toUpperCase()]?.includes(q)) return true;
               
               return false;
             };
@@ -167,7 +211,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
         }
       }
     }
-  }, [searchQuery, onSelectCategory, unitsMap, categories]);
+  }, [searchQuery, onSelectCategory, unitsMap, categories, currencyCategory]);
 
   const filteredCategories = [currencyCategory, ...categories]
     .filter(cat => {
@@ -223,7 +267,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
               className="w-full rounded-2xl border border-gray-100 dark:border-border-dark bg-gray-50 dark:bg-secondary-dark py-4 pl-12 pr-12 text-sm text-gray-800 dark:text-zinc-200 focus:border-[#6C63FF] focus:outline-none transition-colors"
             />
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-600">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" title="search" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             </div>
             <button 
               onClick={startVoiceSearch}

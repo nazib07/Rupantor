@@ -7,6 +7,7 @@ import {
   User
 } from 'firebase/auth';
 import { auth } from '../firebase';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   fetchCategories, 
   fetchUnitsByCategory, 
@@ -17,6 +18,7 @@ import {
   updateUnit,
   deleteUnit
 } from '../services/unitService';
+import { SEED_DATA } from '../seedData';
 import { Category, Unit } from '../types';
 import * as LucideIcons from 'lucide-react';
 import { 
@@ -29,7 +31,8 @@ import {
   LogOut,
   Settings,
   ArrowLeft,
-  Search
+  Search,
+  CheckCircle2
 } from 'lucide-react';
 
 const ADMIN_EMAIL = 'nazib.cse@gmail.com';
@@ -58,6 +61,8 @@ export default function AdminScreen() {
   const [iconSearchQuery, setIconSearchQuery] = useState('');
   const [currentCategory, setCurrentCategory] = useState<Partial<Category>>({});
   const [currentUnit, setCurrentUnit] = useState<Partial<Unit>>({});
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [showSeedSuccess, setShowSeedSuccess] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -175,6 +180,34 @@ export default function AdminScreen() {
     }
   };
 
+  const handleSeedDatabase = async () => {
+    if (!window.confirm('This will populate the database with common categories and units. Continue?')) return;
+    
+    setIsSeeding(true);
+    try {
+      for (const item of SEED_DATA) {
+        // Add category
+        const catRef = await addCategory(item.category);
+        
+        // Add its units
+        for (const unit of item.units) {
+          await addUnit({
+            ...unit,
+            categoryId: catRef.id
+          });
+        }
+      }
+      setShowSeedSuccess(true);
+      setTimeout(() => setShowSeedSuccess(false), 3000);
+      loadCategories();
+    } catch (error: any) {
+      console.error('Seeding failed', error);
+      alert('Seeding failed: ' + error.message);
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-full">Loading...</div>;
 
   if (!user) {
@@ -216,7 +249,31 @@ export default function AdminScreen() {
           </button>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Rupantor Admin</h1>
         </div>
+        
+        <AnimatePresence>
+          {showSeedSuccess && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: -10 }}
+              className="absolute top-20 left-1/2 -translate-x-1/2 z-[100]"
+            >
+              <div className="flex items-center gap-2 px-6 py-3 bg-green-500 text-white rounded-2xl shadow-xl shadow-green-500/20">
+                <CheckCircle2 size={20} />
+                <span className="font-bold">Database Seeded Successfully!</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex items-center gap-4">
+          <button 
+            onClick={handleSeedDatabase}
+            disabled={isSeeding}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isSeeding ? 'Seeding...' : 'Seed Database'}
+          </button>
           <span className="text-sm text-gray-500 dark:text-gray-400 hidden md:inline">{user.email}</span>
           <button 
             onClick={handleLogout}
