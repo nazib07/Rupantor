@@ -24,7 +24,7 @@ export const checkInternetConnection = (): boolean => {
   return navigator.onLine;
 };
 
-export const fetchCurrencyRates = async (): Promise<Unit[]> => {
+export const fetchCurrencyRates = async (): Promise<{ units: Unit[], lastUpdated: number }> => {
   console.log('Fetching currency rates from API...');
   if (!checkInternetConnection()) {
     throw new Error('No internet connection');
@@ -55,7 +55,7 @@ export const fetchCurrencyRates = async (): Promise<Unit[]> => {
       AED: 'সংযুক্ত আরব আমিরাত দিরহাম',
     };
     
-    const currencies: Unit[] = Object.entries(data.rates).map(([code, rate]) => ({
+    const units: Unit[] = Object.entries(data.rates).map(([code, rate]) => ({
       id: code,
       nameEn: code,
       nameBn: currencyNamesBn[code] || code,
@@ -65,7 +65,7 @@ export const fetchCurrencyRates = async (): Promise<Unit[]> => {
       isBase: code === 'USD'
     }));
     
-    return currencies;
+    return { units, lastUpdated: Date.now() };
   } catch (error) {
     console.error('Error fetching currency rates:', error);
     throw error;
@@ -78,7 +78,7 @@ export const fetchCategories = async (): Promise<Category[]> => {
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
 };
 
-export const fetchUnitsByCategory = async (categoryId: string, categoryNameEn?: string): Promise<Unit[]> => {
+export const fetchUnitsByCategory = async (categoryId: string, categoryNameEn?: string): Promise<{ units: Unit[], lastUpdated?: number }> => {
   const name = categoryNameEn?.toLowerCase() || '';
   const id = categoryId?.toLowerCase() || '';
   const isCurrency = id === 'currency' || name === 'currency' || name.includes('currency') || id.includes('currency');
@@ -86,8 +86,8 @@ export const fetchUnitsByCategory = async (categoryId: string, categoryNameEn?: 
   if (isCurrency) {
     console.log('Currency category detected, fetching from API...');
     try {
-      const rates = await fetchCurrencyRates();
-      if (rates && rates.length > 0) return rates;
+      const result = await fetchCurrencyRates();
+      if (result.units && result.units.length > 0) return result;
     } catch (error) {
       console.error('Failed to fetch currency rates, falling back to Firestore units', error);
     }
@@ -95,7 +95,8 @@ export const fetchUnitsByCategory = async (categoryId: string, categoryNameEn?: 
   
   const q = query(collection(db, UNITS_COLLECTION), where('categoryId', '==', categoryId));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit));
+  const units = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit));
+  return { units };
 };
 
 // Admin Functions
@@ -123,6 +124,18 @@ export const updateUnit = async (id: string, unit: Partial<Unit>) => {
 
 export const deleteUnit = async (id: string) => {
   await deleteDoc(doc(db, UNITS_COLLECTION, id));
+};
+
+export const clearAllCategoriesAndUnits = async () => {
+  const categoriesSnapshot = await getDocs(collection(db, CATEGORIES_COLLECTION));
+  const unitsSnapshot = await getDocs(collection(db, UNITS_COLLECTION));
+  
+  const deletePromises = [
+    ...categoriesSnapshot.docs.map(d => deleteDoc(doc(db, CATEGORIES_COLLECTION, d.id))),
+    ...unitsSnapshot.docs.map(d => deleteDoc(doc(db, UNITS_COLLECTION, d.id)))
+  ];
+  
+  await Promise.all(deletePromises);
 };
 
 export const saveHistory = async (historyItem: Omit<HistoryItem, 'id' | 'timestamp'> & { deviceId: string }) => {

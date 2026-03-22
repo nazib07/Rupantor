@@ -2,7 +2,7 @@ import { Language } from '../types';
 
 export const translations: Record<Language, any> = {
   en: {
-    appName: 'Unit Converter',
+    appName: 'Rupantor',
     searchPlaceholder: 'Search (e.g. meter to cm)',
     history: 'History',
     settings: 'Settings',
@@ -29,12 +29,12 @@ export const translations: Record<Language, any> = {
     }
   },
   bn: {
-    appName: 'ইউনিট কনভার্টার',
+    appName: 'রূপান্তর',
     searchPlaceholder: 'খুঁজুন (যেমন: মিটার থেকে সেমি)',
     history: 'ইতিহাস',
     settings: 'সেটিংস',
     from: 'থেকে',
-    to: 'পর্যন্ত',
+    to: 'থেকে',
     saveHistory: 'ইতিহাসে সংরক্ষণ করুন',
     noHistory: 'এখনো কোনো ইতিহাস নেই',
     theme: 'থিম',

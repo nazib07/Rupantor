@@ -1,21 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import * as LucideIcons from 'lucide-react';
 import { 
   ChevronLeft, 
   Moon, 
   Sun, 
   Languages, 
-  Home, 
-  LayoutGrid,
-  Ruler,
-  Weight,
-  Thermometer,
-  Square,
-  Box,
-  Clock,
-  Zap,
-  HardDrive,
-  Coins
+  Home
 } from 'lucide-react';
 import { Language, Theme, Category } from '../types';
 import { translations } from '../constants/translations';
@@ -32,18 +23,13 @@ interface SettingsScreenProps {
   onBack: () => void;
 }
 
-const ICON_MAP: Record<string, any> = {
-  Ruler,
-  Weight,
-  Thermometer,
-  Square,
-  Box,
-  Clock,
-  Zap,
-  HardDrive,
-  Coins,
-  LayoutGrid
-};
+// Filter out non-component exports if any, and keep only icons
+const ICON_MAP: Record<string, any> = Object.entries(LucideIcons).reduce((acc, [name, Icon]) => {
+  if (name !== 'createLucideIcon' && name !== 'LucideIcon' && (typeof Icon === 'function' || typeof Icon === 'object')) {
+    acc[name] = Icon;
+  }
+  return acc;
+}, {} as Record<string, any>);
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ 
   language, 
@@ -159,13 +145,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* Visible Categories Setting */}
         <div className="space-y-4">
           <div className="flex items-center gap-3 text-sm font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-600">
-            <LayoutGrid size={16} />
+            <LucideIcons.LayoutGrid size={16} />
             <span>{language === 'bn' ? 'দৃশ্যমান ক্যাটাগরি' : 'Visible Categories'}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {allCategories.map((cat) => {
               const isVisible = visibleCategories.includes(cat.id);
-              const Icon = ICON_MAP[cat.iconName] || LayoutGrid;
+              const Icon = ICON_MAP[cat.iconName] || LucideIcons.LayoutGrid;
               return (
                 <button
                   key={cat.id}

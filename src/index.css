@@ -30,6 +30,23 @@
     background-color: var(--color-bg-dark);
     @apply text-white;
   }
+
+  /* Android App Feel Optimizations */
+  * {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  input, textarea {
+    user-select: text;
+  }
+
+  body {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
 }
 
 .card-shadow {

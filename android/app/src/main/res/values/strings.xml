@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">রূপান্তর</string>
+    <string name="title_activity_main">রূপান্তর</string>
+    <string name="package_name">com.nazib.rupantor</string>
+    <string name="custom_url_scheme">com.nazib.rupantor</string>
+</resources>

@@ -1,19 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import * as LucideIcons from 'lucide-react';
 import { 
-  Ruler, 
-  Weight, 
-  Thermometer, 
-  Square, 
-  Box, 
-  Clock, 
-  Zap, 
-  HardDrive,
   History as HistoryIcon,
   Settings as SettingsIcon,
-  Coins,
-  Mic,
-  Grid
+  Mic
 } from 'lucide-react';
 import { CategoryType, Language, Category, Unit } from '../types';
 import { translations } from '../constants/translations';
@@ -29,18 +20,13 @@ interface HomeScreenProps {
   onShowSettings: () => void;
 }
 
-const ICON_MAP: Record<string, any> = {
-  Ruler,
-  Weight,
-  Thermometer,
-  Square,
-  Box,
-  Clock,
-  Zap,
-  HardDrive,
-  Coins,
-  Grid
-};
+// Filter out non-component exports if any, and keep only icons
+const ICON_MAP: Record<string, any> = Object.entries(LucideIcons).reduce((acc, [name, Icon]) => {
+  if (name !== 'createLucideIcon' && name !== 'LucideIcon' && (typeof Icon === 'function' || typeof Icon === 'object')) {
+    acc[name] = Icon;
+  }
+  return acc;
+}, {} as Record<string, any>);
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyCategory, visibleCategories, onSelectCategory, onShowHistory, onShowSettings }) => {
   const t = translations[language];
@@ -68,11 +54,24 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
     }
   }, [categories, currencyCategory]);
 
-  const startVoiceSearch = useCallback(() => {
+  const startVoiceSearch = useCallback(async () => {
+    // Pre-flight check for Android: Trigger native permission popup if not granted
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        // Just request it and immediately stop the tracks
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+      }
+    } catch (err) {
+      console.error('Permission pre-flight failed', err);
+      // If user denied, the browser/WebView will handle it, but we continue 
+      // to let the SpeechRecognition try its own error handling
+    }
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
-      alert('Voice search is not supported in this browser.');
+      alert(language === 'bn' ? 'আপনার ডিভাইসে ভয়েস সার্চ সাপোর্ট করে না' : 'Voice search is not supported on this device.');
       return;
     }
 
@@ -100,7 +99,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
       setIsListening(false);
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error('Recognition start failed', e);
+      setIsListening(false);
+    }
   }, [language]);
 
   useEffect(() => {
@@ -283,7 +287,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
       <div className="flex-1 overflow-y-auto px-6 pb-12 scrollbar-hide">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-w-4xl mx-auto">
           {filteredCategories.map((cat, index) => {
-            const Icon = ICON_MAP[cat.iconName] || Grid;
+            const Icon = ICON_MAP[cat.iconName] || LucideIcons.Grid;
             return (
               <motion.button
                 key={cat.id}

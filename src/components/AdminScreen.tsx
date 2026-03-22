@@ -16,7 +16,8 @@ import {
   deleteCategory,
   addUnit,
   updateUnit,
-  deleteUnit
+  deleteUnit,
+  clearAllCategoriesAndUnits
 } from '../services/unitService';
 import { SEED_DATA } from '../seedData';
 import { Category, Unit } from '../types';
@@ -181,10 +182,13 @@ export default function AdminScreen() {
   };
 
   const handleSeedDatabase = async () => {
-    if (!window.confirm('This will populate the database with common categories and units. Continue?')) return;
+    if (!window.confirm('This will RESET all existing categories and units and populate the database with seed data. Continue?')) return;
     
     setIsSeeding(true);
     try {
+      // Clear existing data first
+      await clearAllCategoriesAndUnits();
+      
       for (const item of SEED_DATA) {
         // Add category
         const catRef = await addCategory(item.category);
