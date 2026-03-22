@@ -12,7 +12,7 @@ const SplashScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-black transition-colors"
+      className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white dark:bg-card-dark transition-colors"
     >
       <motion.div
         initial={{ scale: 0.5, opacity: 0, rotate: -180 }}

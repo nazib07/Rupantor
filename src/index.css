@@ -5,6 +5,10 @@
   --color-primary: #6C63FF;
   --color-primary-dark: #5A52D5;
   --color-accent: #E8E7FF;
+  --color-bg-dark: #0B1120;
+  --color-card-dark: #111827;
+  --color-secondary-dark: #1F2937;
+  --color-border-dark: #374151;
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-bn: 'Ador Norit', 'Hind Siliguri', 'Noto Sans Bengali', sans-serif;
 }
@@ -23,7 +27,8 @@
   }
   
   .dark body {
-    @apply bg-black text-white;
+    background-color: var(--color-bg-dark);
+    @apply text-white;
   }
 }
 
@@ -42,6 +47,6 @@
 }
 
 .dark .glass-morphism {
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(11, 17, 32, 0.8);
   border: 1px solid rgba(108, 99, 255, 0.2);
 }

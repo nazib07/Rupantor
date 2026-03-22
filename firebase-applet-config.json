@@ -1,10 +1,10 @@
 {
-  "projectId": "shareroute-151403",
-  "appId": "1:387066443117:web:f85542e1c4e1bbdf061664",
-  "apiKey": "AIzaSyCX73yo_q69MDBcmsHaP0r7n9gmj3v7Uc4",
-  "authDomain": "shareroute-151403.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-d429470a-7447-492a-9338-2399a216014d",
-  "storageBucket": "shareroute-151403.firebasestorage.app",
-  "messagingSenderId": "387066443117",
-  "measurementId": ""
+  "firestoreDatabaseId": "(default)",
+  "apiKey": "AIzaSyD9vPSnmME0hFX_9l7hyvFR75f7jxaez4U",
+  "authDomain": "rupantor-b2fe6.firebaseapp.com",
+  "projectId": "rupantor-b2fe6",
+  "storageBucket": "rupantor-b2fe6.firebasestorage.app",
+  "messagingSenderId": "514433972784",
+  "appId": "1:514433972784:web:ff1457bbc4294e29c28bf5",
+  "measurementId": "G-L8T566E049"
 }

@@ -5,19 +5,67 @@ import HomeScreen from './components/HomeScreen';
 import ConversionScreen from './components/ConversionScreen';
 import HistoryScreen from './components/HistoryScreen';
 import SettingsScreen from './components/SettingsScreen';
-import { CategoryType, Language, Theme } from './types';
+import AdminScreen from './components/AdminScreen';
+import { Category, Language, Theme } from './types';
+import { fetchCategories } from './services/unitService';
 
-type Screen = 'splash' | 'home' | 'conversion' | 'history' | 'settings';
+type Screen = 'splash' | 'home' | 'conversion' | 'history' | 'settings' | 'admin';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [language, setLanguage] = useState<Language>('en');
   const [theme, setTheme] = useState<Theme>('light');
   const [deviceId, setDeviceId] = useState<string>('');
-  const [visibleCategories, setVisibleCategories] = useState<CategoryType[]>([
-    'Length', 'Weight', 'Temperature', 'Area', 'Volume', 'Time', 'Speed', 'Digital Storage', 'Currency'
-  ]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [visibleCategories, setVisibleCategories] = useState<string[]>([]);
+
+  const CURRENCY_CATEGORY: Category = {
+    id: 'currency',
+    nameEn: 'Currency',
+    nameBn: 'মুদ্রা',
+    iconName: 'Coins',
+    order: -1
+  };
+
+  useEffect(() => {
+    if (window.location.pathname === '/admin') {
+      setCurrentScreen('admin');
+    }
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const fetchedCats = await fetchCategories();
+      // Filter out any Firestore category named "Currency" to avoid duplicates
+      const filteredCats = fetchedCats.filter(c => c.nameEn.toLowerCase() !== 'currency' && c.id !== 'currency');
+      setCategories(filteredCats);
+      
+      // Initialize visible categories
+      const savedVisible = localStorage.getItem('rupantor_visible_categories');
+      const allPossibleIds = [CURRENCY_CATEGORY.id, ...filteredCats.map(c => c.id)];
+
+      if (savedVisible) {
+        try {
+          const savedIds = JSON.parse(savedVisible);
+          // Keep saved preferences but add any newly created categories from admin
+          const newIds = allPossibleIds.filter(id => !savedIds.includes(id));
+          
+          // Filter out IDs that no longer exist
+          const validSavedIds = savedIds.filter((id: string) => allPossibleIds.includes(id));
+          
+          setVisibleCategories([...validSavedIds, ...newIds]);
+        } catch (e) {
+          setVisibleCategories(allPossibleIds);
+        }
+      } else {
+        setVisibleCategories(allPossibleIds);
+      }
+    } catch (error) {
+      console.error('Failed to load categories', error);
+    }
+  };
 
   useEffect(() => {
     let id = localStorage.getItem('rupantor_device_id');
@@ -29,17 +77,9 @@ export default function App() {
 
     const savedLanguage = localStorage.getItem('rupantor_language') as Language;
     const savedTheme = localStorage.getItem('rupantor_theme') as Theme;
-    const savedVisibleCategories = localStorage.getItem('rupantor_visible_categories');
 
     if (savedLanguage) setLanguage(savedLanguage);
     if (savedTheme) setTheme(savedTheme || 'light');
-    if (savedVisibleCategories) {
-      try {
-        setVisibleCategories(JSON.parse(savedVisibleCategories));
-      } catch (e) {
-        console.error('Failed to parse visible categories', e);
-      }
-    }
   }, []);
 
   useEffect(() => {
@@ -61,7 +101,7 @@ export default function App() {
     document.documentElement.lang = language;
   }, [language]);
 
-  const handleSelectCategory = (category: CategoryType) => {
+  const handleSelectCategory = (category: Category) => {
     setSelectedCategory(category);
     setCurrentScreen('conversion');
   };
@@ -72,8 +112,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-zinc-950 flex items-center justify-center p-0 md:p-8 transition-colors duration-300">
-      <div className="w-full h-screen md:h-[90vh] md:max-w-5xl bg-white dark:bg-black md:rounded-[3rem] shadow-2xl relative overflow-hidden transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 dark:bg-bg-dark flex items-center justify-center p-0 md:p-8 transition-colors duration-300">
+      <div className="w-full h-screen md:h-[90vh] md:max-w-5xl bg-white dark:bg-card-dark md:rounded-[3rem] shadow-2xl relative overflow-hidden transition-colors duration-300">
         <AnimatePresence mode="wait">
         {currentScreen === 'splash' && (
           <SplashScreen key="splash" onComplete={() => setCurrentScreen('home')} />
@@ -83,6 +123,8 @@ export default function App() {
           <HomeScreen 
             key="home" 
             language={language}
+            categories={categories}
+            currencyCategory={CURRENCY_CATEGORY}
             visibleCategories={visibleCategories}
             onSelectCategory={handleSelectCategory}
             onShowHistory={() => setCurrentScreen('history')}
@@ -105,7 +147,7 @@ export default function App() {
             key="history" 
             language={language}
             deviceId={deviceId}
-            onBack={() => setCurrentScreen('home')} 
+            onBack={handleBack} 
           />
         )}
 
@@ -114,14 +156,19 @@ export default function App() {
             key="settings"
             language={language}
             theme={theme}
+            categories={categories}
+            currencyCategory={CURRENCY_CATEGORY}
             visibleCategories={visibleCategories}
             onUpdateLanguage={setLanguage}
             onUpdateTheme={setTheme}
             onUpdateVisibleCategories={setVisibleCategories}
-            onBack={() => setCurrentScreen('home')}
+            onBack={handleBack}
           />
         )}
-      </AnimatePresence>
+      {currentScreen === 'admin' && (
+          <AdminScreen key="admin" />
+        )}
+        </AnimatePresence>
       </div>
     </div>
   );

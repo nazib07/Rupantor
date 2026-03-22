@@ -8,24 +8,23 @@ export interface AppSettings {
 
 export interface Unit {
   id: string;
-  name: string;
-  nameBn?: string;
-  symbol?: string;
+  nameEn: string;
+  nameBn: string;
+  symbol: string;
   multiplier: number;
-  isBase?: boolean;
-  category: string;
+  isBase: boolean;
+  categoryId: string;
 }
 
-export type CategoryType = 
-  | 'Length' 
-  | 'Weight' 
-  | 'Temperature' 
-  | 'Area' 
-  | 'Volume' 
-  | 'Time' 
-  | 'Speed' 
-  | 'Digital Storage'
-  | 'Currency';
+export interface Category {
+  id: string;
+  nameEn: string;
+  nameBn: string;
+  iconName: string;
+  order?: number;
+}
+
+export type CategoryType = string;
 
 export interface HistoryItem {
   id: string;
@@ -36,10 +35,4 @@ export interface HistoryItem {
   toValue: number;
   category: string;
   timestamp: any;
-}
-
-export interface Category {
-  id: CategoryType;
-  name: string;
-  icon: string;
 }

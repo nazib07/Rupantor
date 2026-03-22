@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { ChevronLeft, ArrowRightLeft, Home } from 'lucide-react';
-import { CategoryType, Unit, Language } from '../types';
-import { fetchUnitsByCategory, DEFAULT_UNITS, convert, saveHistory } from '../services/unitService';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ArrowRightLeft, Home, CheckCircle2 } from 'lucide-react';
+import { Category, Unit, Language } from '../types';
+import { fetchUnitsByCategory, convert, saveHistory } from '../services/unitService';
 import { translations } from '../constants/translations';
 
 interface ConversionScreenProps {
-  category: CategoryType;
+  category: Category;
   language: Language;
   deviceId: string;
   onBack: () => void;
@@ -21,34 +21,27 @@ const ConversionScreen: React.FC<ConversionScreenProps> = ({ category, language,
   const [result, setResult] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSavedPopup, setShowSavedPopup] = useState<boolean>(false);
 
   useEffect(() => {
     const loadUnits = async () => {
       setLoading(true);
       setError(null);
       try {
-        const fetchedUnits = await fetchUnitsByCategory(category);
-        const finalUnits = fetchedUnits.length > 0 ? fetchedUnits : DEFAULT_UNITS[category] || [];
-        setUnits(finalUnits);
-        if (finalUnits.length >= 2) {
-          setFromUnit(finalUnits[0]);
-          setToUnit(finalUnits[1]);
+        const fetchedUnits = await fetchUnitsByCategory(category.id, category.nameEn);
+        setUnits(fetchedUnits);
+        if (fetchedUnits.length >= 2) {
+          setFromUnit(fetchedUnits[0]);
+          setToUnit(fetchedUnits[1]);
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load units');
-        // Fallback to defaults if API fails
-        const fallbackUnits = DEFAULT_UNITS[category] || [];
-        setUnits(fallbackUnits);
-        if (fallbackUnits.length >= 2) {
-          setFromUnit(fallbackUnits[0]);
-          setToUnit(fallbackUnits[1]);
-        }
       } finally {
         setLoading(false);
       }
     };
     loadUnits();
-  }, [category]);
+  }, [category.id]);
 
   useEffect(() => {
     if (fromUnit && toUnit && inputValue) {
@@ -68,13 +61,16 @@ const ConversionScreen: React.FC<ConversionScreenProps> = ({ category, language,
   const handleSave = async () => {
     if (fromUnit && toUnit && inputValue) {
       await saveHistory({
-        fromUnit: language === 'bn' && fromUnit.nameBn ? fromUnit.nameBn : fromUnit.name,
-        toUnit: language === 'bn' && toUnit.nameBn ? toUnit.nameBn : toUnit.name,
+        fromUnit: language === 'bn' ? fromUnit.nameBn : fromUnit.nameEn,
+        toUnit: language === 'bn' ? toUnit.nameBn : toUnit.nameEn,
         fromValue: parseFloat(inputValue),
         toValue: result,
-        category,
+        category: language === 'bn' ? category.nameBn : category.nameEn,
         deviceId
       });
+      
+      setShowSavedPopup(true);
+      setTimeout(() => setShowSavedPopup(false), 2000);
     }
   };
 
@@ -86,23 +82,41 @@ const ConversionScreen: React.FC<ConversionScreenProps> = ({ category, language,
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="absolute inset-0 z-40 flex flex-col bg-white dark:bg-black transition-colors"
+      className="absolute inset-0 z-40 flex flex-col bg-white dark:bg-card-dark transition-colors"
     >
       <div className="flex items-center justify-between px-6 pt-12 max-w-3xl mx-auto w-full">
         <button 
           onClick={onBack}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-zinc-400 transition-transform active:scale-90"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-secondary-dark text-gray-600 dark:text-zinc-400 transition-transform active:scale-90"
         >
           <ChevronLeft size={24} />
         </button>
-        <h2 className="text-xl font-bold text-[#6C63FF]">{t.categories[category as keyof typeof t.categories]}</h2>
+        <h2 className="text-xl font-bold text-[#6C63FF]">{language === 'bn' ? category.nameBn : category.nameEn}</h2>
         <button 
           onClick={onBack}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-zinc-400 transition-transform active:scale-90"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-secondary-dark text-gray-600 dark:text-zinc-400 transition-transform active:scale-90"
         >
           <Home size={20} />
         </button>
       </div>
+
+      <AnimatePresence>
+        {showSavedPopup && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="absolute top-28 left-0 right-0 z-50 flex justify-center px-6 pointer-events-none"
+          >
+            <div className="flex items-center gap-3 rounded-2xl bg-green-500 px-6 py-3 text-white shadow-xl shadow-green-500/20">
+              <CheckCircle2 size={20} />
+              <span className="font-bold">
+                {language === 'bn' ? 'সফলভাবে সংরক্ষিত হয়েছে' : 'Saved Successfully'}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="mt-12 flex flex-1 flex-col px-6 max-w-3xl mx-auto w-full">
         {loading ? (
@@ -125,7 +139,7 @@ const ConversionScreen: React.FC<ConversionScreenProps> = ({ category, language,
         ) : (
           <div className="space-y-6">
             {/* From Unit */}
-            <div className="rounded-3xl bg-gray-50 dark:bg-zinc-900 p-6 transition-colors">
+            <div className="rounded-3xl bg-gray-50 dark:bg-secondary-dark p-6 transition-colors">
             <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-600">{t.from}</label>
             <div className="flex items-center justify-between">
               <select 
@@ -134,8 +148,8 @@ const ConversionScreen: React.FC<ConversionScreenProps> = ({ category, language,
                 className="bg-transparent text-lg font-semibold text-gray-800 dark:text-zinc-200 outline-none"
               >
                 {units.map(u => (
-                  <option key={u.id} value={u.id} className="dark:bg-zinc-900">
-                    {language === 'bn' && u.nameBn ? u.nameBn : u.name}
+                  <option key={u.id} value={u.id} className="dark:bg-secondary-dark">
+                    {language === 'bn' ? u.nameBn : u.nameEn}
                   </option>
                 ))}
               </select>
@@ -168,8 +182,8 @@ const ConversionScreen: React.FC<ConversionScreenProps> = ({ category, language,
                 className="bg-transparent text-lg font-semibold text-[#6C63FF] outline-none"
               >
                 {units.map(u => (
-                  <option key={u.id} value={u.id} className="dark:bg-zinc-900">
-                    {language === 'bn' && u.nameBn ? u.nameBn : u.name}
+                  <option key={u.id} value={u.id} className="dark:bg-secondary-dark">
+                    {language === 'bn' ? u.nameBn : u.nameEn}
                   </option>
                 ))}
               </select>

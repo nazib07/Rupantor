@@ -4,30 +4,42 @@ import {
   query, 
   where, 
   addDoc, 
+  updateDoc,
+  deleteDoc,
+  doc,
   orderBy, 
   limit, 
   serverTimestamp,
   onSnapshot 
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Unit, HistoryItem, CategoryType } from '../types';
+import { db_local } from '../db';
+import { Unit, HistoryItem, CategoryType, Category } from '../types';
 
 const UNITS_COLLECTION = 'units';
-const HISTORY_COLLECTION = 'history';
+const CATEGORIES_COLLECTION = 'categories';
+// const HISTORY_COLLECTION = 'history'; // We're using local SQLite-like DB now
 
 export const checkInternetConnection = (): boolean => {
   return navigator.onLine;
 };
 
 export const fetchCurrencyRates = async (): Promise<Unit[]> => {
+  console.log('Fetching currency rates from API...');
   if (!checkInternetConnection()) {
     throw new Error('No internet connection');
   }
 
   try {
     const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-    if (!response.ok) throw new Error('Failed to fetch currency rates');
+    if (!response.ok) throw new Error(`API returned ${response.status}: ${response.statusText}`);
     const data = await response.json();
+    
+    if (!data || !data.rates) {
+      throw new Error('Invalid API response format');
+    }
+
+    console.log(`Successfully fetched ${Object.keys(data.rates).length} currencies`);
     
     const currencyNamesBn: Record<string, string> = {
       USD: 'মার্কিন ডলার',
@@ -45,11 +57,12 @@ export const fetchCurrencyRates = async (): Promise<Unit[]> => {
     
     const currencies: Unit[] = Object.entries(data.rates).map(([code, rate]) => ({
       id: code,
-      name: code,
+      nameEn: code,
       nameBn: currencyNamesBn[code] || code,
       symbol: code,
       multiplier: 1 / (rate as number), // Convert to base unit (USD)
-      category: 'Currency'
+      categoryId: 'Currency',
+      isBase: code === 'USD'
     }));
     
     return currencies;
@@ -59,103 +72,101 @@ export const fetchCurrencyRates = async (): Promise<Unit[]> => {
   }
 };
 
-export const fetchUnitsByCategory = async (category: CategoryType): Promise<Unit[]> => {
-  if (category === 'Currency') {
-    return await fetchCurrencyRates();
+export const fetchCategories = async (): Promise<Category[]> => {
+  const q = query(collection(db, CATEGORIES_COLLECTION), orderBy('order', 'asc'));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+};
+
+export const fetchUnitsByCategory = async (categoryId: string, categoryNameEn?: string): Promise<Unit[]> => {
+  const name = categoryNameEn?.toLowerCase() || '';
+  const id = categoryId?.toLowerCase() || '';
+  const isCurrency = id === 'currency' || name === 'currency' || name.includes('currency') || id.includes('currency');
+                    
+  if (isCurrency) {
+    console.log('Currency category detected, fetching from API...');
+    try {
+      const rates = await fetchCurrencyRates();
+      if (rates && rates.length > 0) return rates;
+    } catch (error) {
+      console.error('Failed to fetch currency rates, falling back to Firestore units', error);
+    }
   }
-  const q = query(collection(db, UNITS_COLLECTION), where('category', '==', category));
+  
+  const q = query(collection(db, UNITS_COLLECTION), where('categoryId', '==', categoryId));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit));
 };
 
+// Admin Functions
+export const addCategory = async (category: Omit<Category, 'id'>) => {
+  return await addDoc(collection(db, CATEGORIES_COLLECTION), category);
+};
+
+export const updateCategory = async (id: string, category: Partial<Category>) => {
+  const docRef = doc(db, CATEGORIES_COLLECTION, id);
+  await updateDoc(docRef, category);
+};
+
+export const deleteCategory = async (id: string) => {
+  await deleteDoc(doc(db, CATEGORIES_COLLECTION, id));
+};
+
+export const addUnit = async (unit: Omit<Unit, 'id'>) => {
+  return await addDoc(collection(db, UNITS_COLLECTION), unit);
+};
+
+export const updateUnit = async (id: string, unit: Partial<Unit>) => {
+  const docRef = doc(db, UNITS_COLLECTION, id);
+  await updateDoc(docRef, unit);
+};
+
+export const deleteUnit = async (id: string) => {
+  await deleteDoc(doc(db, UNITS_COLLECTION, id));
+};
+
 export const saveHistory = async (historyItem: Omit<HistoryItem, 'id' | 'timestamp'> & { deviceId: string }) => {
-  await addDoc(collection(db, HISTORY_COLLECTION), {
-    ...historyItem,
-    timestamp: serverTimestamp(),
-  });
+  try {
+    await db_local.history.add({
+      ...historyItem,
+      timestamp: new Date()
+    } as HistoryItem);
+    console.log('History saved to local database');
+  } catch (error) {
+    console.error('Failed to save history locally', error);
+  }
 };
 
-export const subscribeToHistory = (deviceId: string, callback: (items: HistoryItem[]) => void) => {
-  if (!deviceId) return () => {};
-
-  const q = query(
-    collection(db, HISTORY_COLLECTION),
-    where('deviceId', '==', deviceId),
-    orderBy('timestamp', 'desc'),
-    limit(20)
-  );
-
-  return onSnapshot(q, (snapshot) => {
-    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as HistoryItem));
-    callback(items);
-  });
+export const deleteHistoryItem = async (id: string) => {
+  try {
+    const numericId = parseInt(id);
+    if (!isNaN(numericId)) {
+      await db_local.history.delete(numericId);
+    } else {
+      await db_local.history.delete(id as any);
+    }
+  } catch (error) {
+    console.error('Failed to delete history item', error);
+  }
 };
 
-// Default units to seed if Firestore is empty
-export const DEFAULT_UNITS: Record<string, Unit[]> = {
-  Length: [
-    { id: 'm', name: 'Meter', nameBn: 'মিটার', symbol: 'm', multiplier: 1, category: 'Length', isBase: true },
-    { id: 'km', name: 'Kilometer', nameBn: 'কিলোমিটার', symbol: 'km', multiplier: 1000, category: 'Length' },
-    { id: 'cm', name: 'Centimeter', nameBn: 'সেন্টিমিটার', symbol: 'cm', multiplier: 0.01, category: 'Length' },
-    { id: 'mm', name: 'Millimeter', nameBn: 'মিলিমিটার', symbol: 'mm', multiplier: 0.001, category: 'Length' },
-    { id: 'in', name: 'Inch', nameBn: 'ইঞ্চি', symbol: 'in', multiplier: 0.0254, category: 'Length' },
-    { id: 'ft', name: 'Foot', nameBn: 'ফুট', symbol: 'ft', multiplier: 0.3048, category: 'Length' },
-  ],
-  Weight: [
-    { id: 'kg', name: 'Kilogram', nameBn: 'কিলোগ্রাম', symbol: 'kg', multiplier: 1, category: 'Weight', isBase: true },
-    { id: 'g', name: 'Gram', nameBn: 'গ্রাম', symbol: 'g', multiplier: 0.001, category: 'Weight' },
-    { id: 'lb', name: 'Pound', nameBn: 'পাউন্ড', symbol: 'lb', multiplier: 0.453592, category: 'Weight' },
-    { id: 'oz', name: 'Ounce', nameBn: 'আউন্স', symbol: 'oz', multiplier: 0.0283495, category: 'Weight' },
-  ],
-  Temperature: [
-    { id: 'c', name: 'Celsius', nameBn: 'সেলসিয়াস', symbol: '°C', multiplier: 1, category: 'Temperature', isBase: true },
-    { id: 'f', name: 'Fahrenheit', nameBn: 'ফারেনহাইট', symbol: '°F', multiplier: 1, category: 'Temperature' },
-    { id: 'k', name: 'Kelvin', nameBn: 'কেলভিন', symbol: 'K', multiplier: 1, category: 'Temperature' },
-  ],
-  Area: [
-    { id: 'm2', name: 'Square Meter', nameBn: 'বর্গ মিটার', symbol: 'm²', multiplier: 1, category: 'Area', isBase: true },
-    { id: 'km2', name: 'Square Kilometer', nameBn: 'বর্গ কিলোমিটার', symbol: 'km²', multiplier: 1000000, category: 'Area' },
-    { id: 'ft2', name: 'Square Foot', nameBn: 'বর্গ ফুট', symbol: 'ft²', multiplier: 0.092903, category: 'Area' },
-  ],
-  Volume: [
-    { id: 'l', name: 'Liter', nameBn: 'লিটার', symbol: 'L', multiplier: 1, category: 'Volume', isBase: true },
-    { id: 'ml', name: 'Milliliter', nameBn: 'মিলিমিটার', symbol: 'mL', multiplier: 0.001, category: 'Volume' },
-    { id: 'm3', name: 'Cubic Meter', nameBn: 'ঘন মিটার', symbol: 'm³', multiplier: 1000, category: 'Volume' },
-  ],
-  Time: [
-    { id: 's', name: 'Second', nameBn: 'সেকেন্ড', symbol: 's', multiplier: 1, category: 'Time', isBase: true },
-    { id: 'min', name: 'Minute', nameBn: 'মিনিট', symbol: 'min', multiplier: 60, category: 'Time' },
-    { id: 'h', name: 'Hour', nameBn: 'ঘণ্টা', symbol: 'h', multiplier: 3600, category: 'Time' },
-    { id: 'd', name: 'Day', nameBn: 'দিন', symbol: 'd', multiplier: 86400, category: 'Time' },
-  ],
-  Speed: [
-    { id: 'ms', name: 'Meter/Second', nameBn: 'মিটার/সেকেন্ড', symbol: 'm/s', multiplier: 1, category: 'Speed', isBase: true },
-    { id: 'kmh', name: 'Kilometer/Hour', nameBn: 'কিলোমিটার/ঘণ্টা', symbol: 'km/h', multiplier: 0.277778, category: 'Speed' },
-    { id: 'mph', name: 'Mile/Hour', nameBn: 'মাইল/ঘণ্টা', symbol: 'mph', multiplier: 0.44704, category: 'Speed' },
-  ],
-  'Digital Storage': [
-    { id: 'b', name: 'Byte', nameBn: 'বাইট', symbol: 'B', multiplier: 1, category: 'Digital Storage', isBase: true },
-    { id: 'kb', name: 'Kilobyte', nameBn: 'কিলোবাইট', symbol: 'KB', multiplier: 1024, category: 'Digital Storage' },
-    { id: 'mb', name: 'Megabyte', nameBn: 'মেগাবাইট', symbol: 'MB', multiplier: 1024 * 1024, category: 'Digital Storage' },
-    { id: 'gb', name: 'Gigabyte', nameBn: 'গিগাবাইট', symbol: 'GB', multiplier: 1024 * 1024 * 1024, category: 'Digital Storage' },
-  ],
-  Currency: [
-    { id: 'USD', name: 'US Dollar', nameBn: 'মার্কিন ডলার', symbol: '$', multiplier: 1, category: 'Currency', isBase: true },
-    { id: 'EUR', name: 'Euro', nameBn: 'ইউরো', symbol: '€', multiplier: 1.08, category: 'Currency' },
-    { id: 'GBP', name: 'British Pound', nameBn: 'ব্রিটিশ পাউন্ড', symbol: '£', multiplier: 1.27, category: 'Currency' },
-    { id: 'BDT', name: 'Bangladeshi Taka', nameBn: 'বাংলাদেশি টাকা', symbol: '৳', multiplier: 0.0091, category: 'Currency' },
-  ],
+export const clearHistory = async () => {
+  try {
+    await db_local.history.clear();
+  } catch (error) {
+    console.error('Failed to clear history', error);
+  }
 };
 
 export const convert = (value: number, from: Unit, to: Unit): number => {
-  if (from.category === 'Temperature') {
+  if (from.categoryId === 'Temperature') {
     // Special case for temperature
     let baseValue = value;
-    if (from.id === 'f') baseValue = (value - 32) * 5 / 9;
-    if (from.id === 'k') baseValue = value - 273.15;
+    if (from.nameEn === 'Fahrenheit' || from.id === 'f') baseValue = (value - 32) * 5 / 9;
+    if (from.nameEn === 'Kelvin' || from.id === 'k') baseValue = value - 273.15;
     
-    if (to.id === 'f') return (baseValue * 9 / 5) + 32;
-    if (to.id === 'k') return baseValue + 273.15;
+    if (to.nameEn === 'Fahrenheit' || to.id === 'f') return (baseValue * 9 / 5) + 32;
+    if (to.nameEn === 'Kelvin' || to.id === 'k') return baseValue + 273.15;
     return baseValue;
   }
   

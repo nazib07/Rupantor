@@ -1,23 +1,55 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Moon, Sun, Languages, Home, LayoutGrid } from 'lucide-react';
-import { Language, Theme, CategoryType } from '../types';
+import { 
+  ChevronLeft, 
+  Moon, 
+  Sun, 
+  Languages, 
+  Home, 
+  LayoutGrid,
+  Ruler,
+  Weight,
+  Thermometer,
+  Square,
+  Box,
+  Clock,
+  Zap,
+  HardDrive,
+  Coins
+} from 'lucide-react';
+import { Language, Theme, Category } from '../types';
 import { translations } from '../constants/translations';
-import { categories } from './HomeScreen';
 
 interface SettingsScreenProps {
   language: Language;
   theme: Theme;
-  visibleCategories: CategoryType[];
+  categories: Category[];
+  currencyCategory: Category;
+  visibleCategories: string[];
   onUpdateLanguage: (lang: Language) => void;
   onUpdateTheme: (theme: Theme) => void;
-  onUpdateVisibleCategories: (categories: CategoryType[]) => void;
+  onUpdateVisibleCategories: (categories: string[]) => void;
   onBack: () => void;
 }
+
+const ICON_MAP: Record<string, any> = {
+  Ruler,
+  Weight,
+  Thermometer,
+  Square,
+  Box,
+  Clock,
+  Zap,
+  HardDrive,
+  Coins,
+  LayoutGrid
+};
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ 
   language, 
   theme, 
+  categories,
+  currencyCategory,
   visibleCategories,
   onUpdateLanguage, 
   onUpdateTheme, 
@@ -26,7 +58,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 }) => {
   const t = translations[language];
 
-  const toggleCategory = (categoryId: CategoryType) => {
+  const toggleCategory = (categoryId: string) => {
     if (visibleCategories.includes(categoryId)) {
       // Don't allow hiding all categories
       if (visibleCategories.length > 1) {
@@ -37,25 +69,27 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
+  const allCategories = [currencyCategory, ...categories];
+
   return (
     <motion.div 
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="absolute inset-0 z-40 flex flex-col bg-white dark:bg-black"
+      className="absolute inset-0 z-40 flex flex-col bg-white dark:bg-card-dark"
     >
       <div className="flex items-center justify-between px-6 pt-12 max-w-2xl mx-auto w-full">
         <button 
           onClick={onBack}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-zinc-400 transition-transform active:scale-90"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-secondary-dark text-gray-600 dark:text-zinc-400 transition-transform active:scale-90"
         >
           <ChevronLeft size={24} />
         </button>
         <h2 className="text-xl font-bold text-[#6C63FF]">{t.settings}</h2>
         <button 
           onClick={onBack}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-zinc-900 text-gray-600 dark:text-zinc-400 transition-transform active:scale-90"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-secondary-dark text-gray-600 dark:text-zinc-400 transition-transform active:scale-90"
         >
           <Home size={20} />
         </button>
@@ -74,7 +108,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               className={`flex-1 rounded-2xl py-4 font-bold transition-all ${
                 theme === 'light' 
                   ? 'bg-[#6C63FF] text-white shadow-lg' 
-                  : 'bg-gray-50 dark:bg-zinc-900 text-gray-500 dark:text-zinc-400'
+                  : 'bg-gray-50 dark:bg-secondary-dark text-gray-500 dark:text-zinc-400'
               }`}
             >
               {t.light}
@@ -84,7 +118,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               className={`flex-1 rounded-2xl py-4 font-bold transition-all ${
                 theme === 'dark' 
                   ? 'bg-[#6C63FF] text-white shadow-lg' 
-                  : 'bg-gray-50 dark:bg-zinc-900 text-gray-500 dark:text-zinc-400'
+                  : 'bg-gray-50 dark:bg-secondary-dark text-gray-500 dark:text-zinc-400'
               }`}
             >
               {t.dark}
@@ -104,7 +138,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               className={`flex-1 rounded-2xl py-4 font-bold transition-all ${
                 language === 'en' 
                   ? 'bg-[#6C63FF] text-white shadow-lg' 
-                  : 'bg-gray-50 dark:bg-zinc-900 text-gray-500 dark:text-zinc-400'
+                  : 'bg-gray-50 dark:bg-secondary-dark text-gray-500 dark:text-zinc-400'
               }`}
             >
               {t.english}
@@ -114,7 +148,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               className={`flex-1 rounded-2xl py-4 font-bold transition-all ${
                 language === 'bn' 
                   ? 'bg-[#6C63FF] text-white shadow-lg' 
-                  : 'bg-gray-50 dark:bg-zinc-900 text-gray-500 dark:text-zinc-400'
+                  : 'bg-gray-50 dark:bg-secondary-dark text-gray-500 dark:text-zinc-400'
               }`}
             >
               {t.bangla}
@@ -129,20 +163,21 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <span>{language === 'bn' ? 'দৃশ্যমান ক্যাটাগরি' : 'Visible Categories'}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {categories.map((cat) => {
-              const isVisible = visibleCategories.includes(cat.id as CategoryType);
+            {allCategories.map((cat) => {
+              const isVisible = visibleCategories.includes(cat.id);
+              const Icon = ICON_MAP[cat.iconName] || LayoutGrid;
               return (
                 <button
                   key={cat.id}
-                  onClick={() => toggleCategory(cat.id as CategoryType)}
+                  onClick={() => toggleCategory(cat.id)}
                   className={`flex items-center gap-3 rounded-xl p-3 text-left transition-all border ${
                     isVisible 
                       ? 'bg-[#6C63FF]/10 border-[#6C63FF] text-[#6C63FF]' 
-                      : 'bg-gray-50 dark:bg-zinc-900 border-transparent text-gray-500 dark:text-zinc-400'
+                      : 'bg-gray-50 dark:bg-secondary-dark border-transparent text-gray-500 dark:text-zinc-400'
                   }`}
                 >
-                  <cat.icon size={18} />
-                  <span className="text-xs font-semibold truncate">{t.categories[cat.id as keyof typeof t.categories]}</span>
+                  <Icon size={18} />
+                  <span className="text-xs font-semibold truncate">{language === 'bn' ? cat.nameBn : cat.nameEn}</span>
                 </button>
               );
             })}
