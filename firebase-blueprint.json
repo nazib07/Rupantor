@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "Unit": {
+      "title": "Unit",
+      "description": "A unit of measurement within a category.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "symbol": { "type": "string" },
+        "multiplier": { "type": "number", "description": "Factor to convert to base unit" },
+        "isBase": { "type": "boolean" },
+        "category": { "type": "string" }
+      },
+      "required": ["name", "multiplier", "category"]
+    },
+    "HistoryItem": {
+      "title": "HistoryItem",
+      "description": "A record of a past conversion.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fromUnit": { "type": "string" },
+        "toUnit": { "type": "string" },
+        "fromValue": { "type": "number" },
+        "toValue": { "type": "number" },
+        "category": { "type": "string" },
+        "deviceId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fromUnit", "toUnit", "fromValue", "toValue", "timestamp", "deviceId"]
+    }
+  },
+  "firestore": {
+    "/units/{unitId}": {
+      "schema": "Unit",
+      "description": "Collection of all available units."
+    },
+    "/history/{historyId}": {
+      "schema": "HistoryItem",
+      "description": "Collection of past conversion records."
+    }
+  }
+}

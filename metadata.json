@@ -1,0 +1,5 @@
+{
+  "name": "রূপান্তর (Rupantor)",
+  "description": "A clean, modern unit converter with configurable units via Firebase Firestore.",
+  "requestFramePermissions": ["microphone"]
+}

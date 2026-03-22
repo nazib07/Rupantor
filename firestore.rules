@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: units
+    // Fields:
+    //   - name: string (required)
+    //   - symbol: string (optional)
+    //   - multiplier: number (required)
+    //   - isBase: bool (optional)
+    //   - category: string (required)
+    //
+    // Collection: history
+    // Fields:
+    //   - fromUnit: string (required)
+    //   - toUnit: string (required)
+    //   - fromValue: number (required)
+    //   - toValue: number (required)
+    //   - category: string (required)
+    //   - timestamp: timestamp (required)
+    //   - deviceId: string (required)
+    // ===============================================================
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+              request.auth.token.email == "nazib.cse@gmail.com");
+    }
+
+    function isValidUnit(data) {
+      return data.keys().hasAll(['name', 'multiplier', 'category']) &&
+             data.name is string && data.name.size() < 100 &&
+             data.multiplier is number &&
+             data.category is string;
+    }
+
+    function isValidHistory(data) {
+      return data.keys().hasAll(['fromUnit', 'toUnit', 'fromValue', 'toValue', 'category', 'timestamp', 'deviceId']) &&
+             data.fromUnit is string && data.toUnit is string &&
+             data.fromValue is number && data.toValue is number &&
+             data.category is string &&
+             data.deviceId is string && data.deviceId.size() < 100 &&
+             data.timestamp is timestamp;
+    }
+
+    // Units are publicly readable, but only admins can write
+    match /units/{unitId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // History is tracked by deviceId
+    match /history/{historyId} {
+      // Allow reading if the user filters by their own deviceId
+      allow read: if request.query.limit <= 50 && request.query.deviceId == resource.data.deviceId;
+      // Allow creating if the data is valid
+      allow create: if isValidHistory(request.resource.data);
+      // Allow deleting/updating only if it's the same device (though app doesn't currently delete)
+      allow update, delete: if resource.data.deviceId == request.resource.data.deviceId;
+    }
+  }
+}
