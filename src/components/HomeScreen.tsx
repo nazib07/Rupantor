@@ -107,29 +107,40 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
     }
   }, [language]);
 
-  useEffect(() => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return;
+  const performConversionSearch = useCallback((query: string) => {
+    const q = query.toLowerCase().trim();
+    if (!q) return false;
 
     // Support multiple separators for English and Bengali
+    // Use word boundaries or spaces for English, but be more flexible for Bengali
     const separators = [' to ', ' into ', ' in ', ' থেকে ', ' হতে ', ' তে ', ' এ '];
     let foundSeparator = '';
     
     for (const sep of separators) {
-      if (query.includes(sep)) {
+      if (q.includes(sep)) {
         foundSeparator = sep;
         break;
       }
     }
 
+    if (!foundSeparator) {
+      // Try Bengali separators without spaces as a fallback
+      const bengaliSeps = ['থেকে', 'হতে'];
+      for (const sep of bengaliSeps) {
+        if (q.includes(sep)) {
+          foundSeparator = sep;
+          break;
+        }
+      }
+    }
+
     if (foundSeparator) {
-      const parts = query.split(foundSeparator);
-      if (parts.length === 2) {
-        // Clean parts: remove numbers and extra spaces
-        // e.g., "5 meters" -> "meters"
-        const cleanPart = (p: string) => p.replace(/[0-9.]/g, '').trim();
+      const parts = q.split(foundSeparator);
+      if (parts.length >= 2) {
+        // Clean parts: remove numbers (English and Bengali) and extra spaces
+        const cleanPart = (p: string) => p.replace(/[0-9.০-৯]/g, '').trim();
         const fromPart = cleanPart(parts[0]);
-        const toPart = cleanPart(parts[1]);
+        const toPart = cleanPart(parts[parts.length - 1]); // Get last part if multiple separators
 
         if (fromPart && toPart) {
           // Find category that contains both units
@@ -139,44 +150,44 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
             const isMatch = (unit: Unit, queryPart: string) => {
               const nameEn = unit.nameEn.toLowerCase();
               const nameBn = unit.nameBn.toLowerCase();
-              const symbol = unit.symbol.toLowerCase();
+              const symbol = (unit.symbol || '').toLowerCase();
               
-              const q = queryPart.toLowerCase().trim();
-              if (!q) return false;
+              const qPart = queryPart.toLowerCase().trim();
+              if (!qPart) return false;
 
               // 1. Direct matches
-              if (nameEn === q || nameBn === q || symbol === q) return true;
+              if (nameEn === qPart || nameBn === qPart || symbol === qPart) return true;
               
               // 2. Plural matches (common patterns)
               const isPluralMatch = (base: string) => {
-                return base + 's' === q || 
-                       base + 'es' === q || 
-                       (base.endsWith('y') && base.slice(0, -1) + 'ies' === q);
+                return base + 's' === qPart || 
+                       base + 'es' === qPart || 
+                       (base.endsWith('y') && base.slice(0, -1) + 'ies' === qPart);
               };
               if (isPluralMatch(nameEn)) return true;
 
-              // 3. Common Unit Variations (Meter/Metre, Liter/Litre)
+              // 3. Common Unit Variations
               const variations: Record<string, string[]> = {
-                'meter': ['metre', 'metres', 'meters'],
-                'kilometer': ['kilometre', 'kilometres', 'kilometers', 'km'],
-                'centimeter': ['centimetre', 'centimetres', 'centimeters', 'cm'],
-                'millimeter': ['millimetre', 'millimetres', 'millimeters', 'mm'],
-                'liter': ['litre', 'litres', 'liters', 'l'],
-                'gram': ['grams', 'gm', 'g'],
-                'kilogram': ['kilograms', 'kg'],
-                'inch': ['inches', 'in'],
-                'foot': ['feet', 'ft'],
-                'yard': ['yards', 'yd'],
-                'mile': ['miles', 'mi'],
-                'second': ['seconds', 'sec', 's'],
-                'minute': ['minutes', 'min', 'm'],
-                'hour': ['hours', 'hr', 'h'],
-                'celsius': ['centigrade', 'degree celsius', 'degree centigrade'],
-                'fahrenheit': ['degree fahrenheit'],
+                'meter': ['metre', 'metres', 'meters', 'মিটার'],
+                'kilometer': ['kilometre', 'kilometres', 'kilometers', 'km', 'কিলোমিটার', 'কিমি'],
+                'centimeter': ['centimetre', 'centimetres', 'centimeters', 'cm', 'সেন্টিমিটার', 'সেমি'],
+                'millimeter': ['millimetre', 'millimetres', 'millimeters', 'mm', 'মিলিমিটার', 'মিমি'],
+                'liter': ['litre', 'litres', 'liters', 'l', 'লিটার'],
+                'gram': ['grams', 'gm', 'g', 'গ্রাম'],
+                'kilogram': ['kilograms', 'kg', 'কেজি', 'কিলোগ্রাম'],
+                'inch': ['inches', 'in', 'ইঞ্চি'],
+                'foot': ['feet', 'ft', 'ফুট'],
+                'yard': ['yards', 'yd', 'গজ'],
+                'mile': ['miles', 'mi', 'মাইল'],
+                'second': ['seconds', 'sec', 's', 'সেকেন্ড'],
+                'minute': ['minutes', 'min', 'm', 'মিনিট'],
+                'hour': ['hours', 'hr', 'h', 'ঘণ্টা', 'ঘন্টা'],
+                'celsius': ['centigrade', 'degree celsius', 'degree centigrade', 'সেলসিয়াস'],
+                'fahrenheit': ['degree fahrenheit', 'ফারেনহাইট'],
               };
 
               for (const [base, alts] of Object.entries(variations)) {
-                if (nameEn === base && alts.includes(q)) return true;
+                if (nameEn === base && alts.includes(qPart)) return true;
               }
 
               // 4. Currency common names mapping
@@ -194,7 +205,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
                 'JPY': ['yen', 'ইয়েন', 'জাপানি ইয়েন'],
               };
 
-              if (currencyMap[symbol.toUpperCase()]?.includes(q)) return true;
+              if (symbol && currencyMap[symbol.toUpperCase()]?.includes(qPart)) return true;
               
               return false;
             };
@@ -208,22 +219,35 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
               if (selectedCat) {
                 onSelectCategory(selectedCat, matchedFromUnit, matchedToUnit);
                 setSearchQuery(''); // Clear search after navigating
-                break;
+                return true;
               }
             }
           }
         }
       }
     }
-  }, [searchQuery, onSelectCategory, unitsMap, categories, currencyCategory]);
+    return false;
+  }, [unitsMap, categories, currencyCategory, onSelectCategory]);
+
+  useEffect(() => {
+    performConversionSearch(searchQuery);
+  }, [searchQuery, performConversionSearch]);
 
   const filteredCategories = [currencyCategory, ...categories]
     .filter(cat => {
       const isVisible = visibleCategories.includes(cat.id);
       if (!isVisible) return false;
       
+      const query = searchQuery.toLowerCase().trim();
+      if (!query) return true;
+
+      // If it looks like a conversion query (contains a separator), 
+      // we don't filter out categories based on the full query string
+      const separators = [' to ', ' into ', ' in ', ' থেকে ', ' হতে ', ' তে ', ' এ ', 'থেকে', 'হতে'];
+      if (separators.some(sep => query.includes(sep))) return true;
+      
       const categoryName = (language === 'bn' ? cat.nameBn : cat.nameEn).toLowerCase();
-      return categoryName.includes(searchQuery.toLowerCase());
+      return categoryName.includes(query);
     })
     .sort((a, b) => {
       // Keep currency first if it exists, otherwise sort by order or name
@@ -268,6 +292,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
               placeholder={t.searchPlaceholder} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  performConversionSearch(searchQuery);
+                }
+              }}
               className="w-full rounded-2xl border border-gray-100 dark:border-border-dark bg-gray-50 dark:bg-secondary-dark py-4 pl-12 pr-12 text-sm text-gray-800 dark:text-zinc-200 focus:border-[#6C63FF] focus:outline-none transition-colors"
             />
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-600">
