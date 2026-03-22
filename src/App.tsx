@@ -7,14 +7,16 @@ import ConversionScreen from './components/ConversionScreen';
 import HistoryScreen from './components/HistoryScreen';
 import SettingsScreen from './components/SettingsScreen';
 import AdminScreen from './components/AdminScreen';
-import { Category, Language, Theme } from './types';
+import { Category, Language, Theme, Unit } from './types';
 import { fetchCategories } from './services/unitService';
+import { App as CapApp } from '@capacitor/app';
 
 type Screen = 'splash' | 'home' | 'conversion' | 'history' | 'settings' | 'admin';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [initialUnits, setInitialUnits] = useState<{ from?: Unit; to?: Unit }>({});
   const [language, setLanguage] = useState<Language>('bn');
   const [theme, setTheme] = useState<Theme>('light');
   const [deviceId, setDeviceId] = useState<string>('');
@@ -117,23 +119,23 @@ export default function App() {
     };
   }, []);
 
-  // Handle Android Back Button
+  // Handle Android Hardware Back Button via Capacitor
   useEffect(() => {
-    const handleBackButton = (e: PopStateEvent) => {
+    const handleCapacitorBackButton = () => {
+      console.log('Android back button pressed, current screen:', currentScreen);
       if (currentScreen !== 'home' && currentScreen !== 'splash') {
-        e.preventDefault();
-        setCurrentScreen('home');
-        // Push state again to keep the user in the app
-        window.history.pushState(null, '', window.location.pathname);
+        handleBack();
+      } else {
+        // If on home, exit the app
+        CapApp.exitApp();
       }
     };
 
-    window.addEventListener('popstate', handleBackButton);
-    
-    // Initial state
-    window.history.pushState(null, '', window.location.pathname);
+    const listener = CapApp.addListener('backButton', handleCapacitorBackButton);
 
-    return () => window.removeEventListener('popstate', handleBackButton);
+    return () => {
+      listener.then(l => l.remove());
+    };
   }, [currentScreen]);
 
   // Update Status Bar Color for Android
@@ -151,14 +153,16 @@ export default function App() {
     }
   }, [theme]);
 
-  const handleSelectCategory = (category: Category) => {
+  const handleSelectCategory = (category: Category, initialFrom?: Unit, initialTo?: Unit) => {
     setSelectedCategory(category);
+    setInitialUnits({ from: initialFrom, to: initialTo });
     setCurrentScreen('conversion');
   };
 
   const handleBack = () => {
     setCurrentScreen('home');
     setSelectedCategory(null);
+    setInitialUnits({});
   };
 
   return (
@@ -217,6 +221,8 @@ export default function App() {
             category={selectedCategory} 
             language={language}
             deviceId={deviceId}
+            initialFromUnit={initialUnits.from}
+            initialToUnit={initialUnits.to}
             onBack={handleBack} 
           />
         )}
@@ -244,7 +250,8 @@ export default function App() {
             onBack={handleBack}
           />
         )}
-      {currentScreen === 'admin' && (
+
+        {currentScreen === 'admin' && (
           <AdminScreen key="admin" />
         )}
         </AnimatePresence>

@@ -15,7 +15,7 @@ interface HomeScreenProps {
   categories: Category[];
   currencyCategory: Category;
   visibleCategories: string[];
-  onSelectCategory: (category: Category) => void;
+  onSelectCategory: (category: Category, fromUnit?: Unit, toUnit?: Unit) => void;
   onShowHistory: () => void;
   onShowSettings: () => void;
 }
@@ -40,8 +40,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
       const allCats = [currencyCategory, ...categories];
       await Promise.all(allCats.map(async (cat) => {
         try {
-          const units = await fetchUnitsByCategory(cat.id, cat.nameEn);
-          map[cat.id] = units;
+          const response = await fetchUnitsByCategory(cat.id, cat.nameEn);
+          map[cat.id] = response.units;
         } catch (e) {
           console.error(`Failed to load units for ${cat.id}`, e);
         }
@@ -199,14 +199,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
               return false;
             };
 
-            const hasFrom = units.some(u => isMatch(u, fromPart));
-            const hasTo = units.some(u => isMatch(u, toPart));
+            const matchedFromUnit = units.find(u => isMatch(u, fromPart));
+            const matchedToUnit = units.find(u => isMatch(u, toPart));
 
-            if (hasFrom && hasTo) {
+            if (matchedFromUnit && matchedToUnit) {
               const allCats = [currencyCategory, ...categories];
               const selectedCat = allCats.find(c => c.id === catId);
               if (selectedCat) {
-                onSelectCategory(selectedCat);
+                onSelectCategory(selectedCat, matchedFromUnit, matchedToUnit);
                 setSearchQuery(''); // Clear search after navigating
                 break;
               }

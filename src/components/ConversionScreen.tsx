@@ -9,6 +9,8 @@ interface ConversionScreenProps {
   category: Category;
   language: Language;
   deviceId: string;
+  initialFromUnit?: Unit;
+  initialToUnit?: Unit;
   onBack: () => void;
 }
 
@@ -75,7 +77,14 @@ const UnitDropdown: React.FC<{
   );
 };
 
-const ConversionScreen: React.FC<ConversionScreenProps> = ({ category, language, deviceId, onBack }) => {
+const ConversionScreen: React.FC<ConversionScreenProps> = ({ 
+  category, 
+  language, 
+  deviceId, 
+  initialFromUnit, 
+  initialToUnit, 
+  onBack 
+}) => {
   const t = translations[language];
   const [units, setUnits] = useState<Unit[]>([]);
   const [fromUnit, setFromUnit] = useState<Unit | null>(null);
@@ -100,7 +109,20 @@ const ConversionScreen: React.FC<ConversionScreenProps> = ({ category, language,
         setLastUpdated(response.lastUpdated);
       }
       
-      if (!fromUnit && !toUnit && response.units.length >= 2) {
+      // If initial units are provided, use them. Otherwise use defaults.
+      if (initialFromUnit && initialToUnit) {
+        // Ensure the initial units are actually in the fetched units list
+        const foundFrom = response.units.find(u => u.id === initialFromUnit.id);
+        const foundTo = response.units.find(u => u.id === initialToUnit.id);
+        if (foundFrom && foundTo) {
+          setFromUnit(foundFrom);
+          setToUnit(foundTo);
+        } else {
+          // Fallback to first two units if initial units aren't found in the current category
+          setFromUnit(response.units[0]);
+          setToUnit(response.units[1]);
+        }
+      } else if (!fromUnit && !toUnit && response.units.length >= 2) {
         setFromUnit(response.units[0]);
         setToUnit(response.units[1]);
       }
