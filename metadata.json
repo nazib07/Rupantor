@@ -1,5 +1,5 @@
 {
   "name": "রূপান্তর (Rupantor)",
-  "description": "A clean, modern unit converter with configurable units via Firebase Firestore.",
+  "description": "A clean, modern unit converter and offline image converter/editor with cropping, background removal, and color correction features.",
   "requestFramePermissions": ["microphone"]
 }

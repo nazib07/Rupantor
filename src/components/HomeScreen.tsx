@@ -14,10 +14,12 @@ interface HomeScreenProps {
   language: Language;
   categories: Category[];
   currencyCategory: Category;
+  imageConverterCategory: Category;
   visibleCategories: string[];
   onSelectCategory: (category: Category, fromUnit?: Unit, toUnit?: Unit) => void;
   onShowHistory: () => void;
   onShowSettings: () => void;
+  onShowImageConverter: () => void;
 }
 
 // Filter out non-component exports if any, and keep only icons
@@ -28,7 +30,17 @@ const ICON_MAP: Record<string, any> = Object.entries(LucideIcons).reduce((acc, [
   return acc;
 }, {} as Record<string, any>);
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyCategory, visibleCategories, onSelectCategory, onShowHistory, onShowSettings }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ 
+  language, 
+  categories, 
+  currencyCategory, 
+  imageConverterCategory,
+  visibleCategories, 
+  onSelectCategory, 
+  onShowHistory, 
+  onShowSettings,
+  onShowImageConverter 
+}) => {
   const t = translations[language];
   const [searchQuery, setSearchQuery] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -37,7 +49,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
   useEffect(() => {
     const loadAllUnits = async () => {
       const map: Record<string, Unit[]> = {};
-      const allCats = [currencyCategory, ...categories];
+      const allCats = [currencyCategory, imageConverterCategory, ...categories];
       await Promise.all(allCats.map(async (cat) => {
         try {
           const response = await fetchUnitsByCategory(cat.id, cat.nameEn);
@@ -214,7 +226,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
             const matchedToUnit = units.find(u => isMatch(u, toPart));
 
             if (matchedFromUnit && matchedToUnit) {
-              const allCats = [currencyCategory, ...categories];
+              const allCats = [currencyCategory, imageConverterCategory, ...categories];
               const selectedCat = allCats.find(c => c.id === catId);
               if (selectedCat) {
                 onSelectCategory(selectedCat, matchedFromUnit, matchedToUnit);
@@ -233,7 +245,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
     performConversionSearch(searchQuery);
   }, [searchQuery, performConversionSearch]);
 
-  const filteredCategories = [currencyCategory, ...categories]
+  const filteredCategories = [currencyCategory, imageConverterCategory, ...categories]
     .filter(cat => {
       const isVisible = visibleCategories.includes(cat.id);
       if (!isVisible) return false;
@@ -267,7 +279,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
     <div className="flex h-full flex-col bg-white dark:bg-card-dark transition-colors overflow-hidden">
       {/* Fixed Header */}
       <div className="px-6 pt-12 pb-4 max-w-4xl mx-auto w-full">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-0 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[#6C63FF]">{t.appName}</h1>
           <div className="flex gap-3">
             <button 
@@ -322,10 +334,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ language, categories, currencyC
                 key={cat.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                onClick={() => onSelectCategory(cat)}
-                className="flex flex-col items-center justify-center rounded-3xl border border-gray-50 dark:border-border-dark bg-white dark:bg-secondary-dark p-6 card-shadow transition-all hover:border-[#6C63FF]/20 active:scale-95"
-              >
+                 transition={{ delay: index * 0.05 }}
+                 onClick={() => {
+                   if (cat.id === 'image-converter') {
+                     onShowImageConverter();
+                   } else {
+                     onSelectCategory(cat);
+                   }
+                 }}
+                 className="flex flex-col items-center justify-center rounded-3xl border border-gray-50 dark:border-border-dark bg-white dark:bg-secondary-dark p-6 card-shadow transition-all hover:border-[#6C63FF]/20 active:scale-95"
+               >
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E8E7FF] dark:bg-[#6C63FF]/10 text-[#6C63FF]">
                   <Icon size={24} />
                 </div>

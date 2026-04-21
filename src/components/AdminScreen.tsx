@@ -36,7 +36,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-const ADMIN_EMAIL = 'dotknot.app@gmail.com';
+const ADMIN_EMAIL = 'nazib.cse@gmail.com';
 
 // Filter out non-component exports if any, and keep only icons
 const ICON_MAP: Record<string, any> = Object.entries(LucideIcons).reduce((acc, [name, Icon]) => {
@@ -101,7 +101,7 @@ export default function AdminScreen() {
     setLoadingUnits(true);
     try {
       const uns = await fetchUnitsByCategory(cat.id, cat.nameEn);
-      setUnits(uns);
+      setUnits(uns.units);
     } catch (error: any) {
       console.error('Failed to load units', error);
       setLoginError(error.message || 'Failed to load units');

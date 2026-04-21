@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ArrowRightLeft, Home, CheckCircle2, ChevronDown, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ArrowRightLeft, Home, CheckCircle2, ChevronDown, RefreshCw, Search } from 'lucide-react';
 import { Category, Unit, Language } from '../types';
 import { fetchUnitsByCategory, convert, saveHistory, fetchCurrencyRates } from '../services/unitService';
 import { translations } from '../constants/translations';
@@ -21,7 +21,9 @@ const UnitDropdown: React.FC<{
   language: Language;
 }> = ({ units, selectedUnit, onSelect, language }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -32,6 +34,26 @@ const UnitDropdown: React.FC<{
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+    if (!isOpen) {
+      setSearchQuery('');
+    }
+  }, [isOpen]);
+
+  const filteredUnits = units.filter(unit => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    
+    return (
+      unit.nameEn.toLowerCase().includes(query) ||
+      unit.nameBn.toLowerCase().includes(query) ||
+      (unit.symbol && unit.symbol.toLowerCase().includes(query))
+    );
+  });
 
   return (
     <div className="relative max-w-[50%]" ref={dropdownRef}>
@@ -51,25 +73,53 @@ const UnitDropdown: React.FC<{
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute left-0 mt-2 z-50 w-64 max-h-64 overflow-y-auto rounded-2xl bg-white dark:bg-secondary-dark shadow-2xl border border-gray-100 dark:border-border-dark p-2 scrollbar-hide"
+            className="absolute left-0 mt-2 z-50 w-72 max-h-80 flex flex-col rounded-2xl bg-white dark:bg-zinc-900 shadow-2xl border border-gray-100 dark:border-white/10 p-2 overflow-hidden"
           >
-            {units.map((unit) => (
-              <button
-                key={unit.id}
-                onClick={() => {
-                  onSelect(unit);
-                  setIsOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                  selectedUnit.id === unit.id
-                    ? 'bg-[#6C63FF] text-white'
-                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5'
-                }`}
-              >
-                <span>{language === 'bn' ? unit.nameBn : unit.nameEn}</span>
-                {unit.symbol && <span className={`text-[10px] px-1.5 py-0.5 rounded ${selectedUnit.id === unit.id ? 'bg-white/20' : 'bg-gray-100 dark:bg-white/10'}`}>{unit.symbol}</span>}
-              </button>
-            ))}
+            {/* Search Input */}
+            <div className="relative mb-2 shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder={language === 'bn' ? 'খুঁজুন...' : 'Search...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 dark:bg-white/5 border-none rounded-xl text-sm outline-none focus:ring-1 focus:ring-[#6C63FF]/50 dark:text-white"
+              />
+            </div>
+
+            {/* Units List */}
+            <div className="overflow-y-auto scrollbar-hide flex-1">
+              {filteredUnits.length > 0 ? (
+                filteredUnits.map((unit) => (
+                  <button
+                    key={unit.id}
+                    onClick={() => {
+                      onSelect(unit);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-colors mb-1 last:mb-0 ${
+                      selectedUnit.id === unit.id
+                        ? 'bg-[#6C63FF] text-white shadow-md shadow-[#6C63FF]/20'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="truncate">{language === 'bn' ? unit.nameBn : unit.nameEn}</span>
+                    {unit.symbol && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ml-2 shrink-0 ${
+                        selectedUnit.id === unit.id ? 'bg-white/20' : 'bg-gray-100 dark:bg-white/10'
+                      }`}>
+                        {unit.symbol}
+                      </span>
+                    )}
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-8 text-center text-gray-400 text-xs">
+                  {language === 'bn' ? 'কোনো ফলাফল পাওয়া যায়নি' : 'No results found'}
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

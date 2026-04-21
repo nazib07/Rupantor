@@ -16,6 +16,7 @@ interface SettingsScreenProps {
   theme: Theme;
   categories: Category[];
   currencyCategory: Category;
+  imageConverterCategory: Category;
   visibleCategories: string[];
   onUpdateLanguage: (lang: Language) => void;
   onUpdateTheme: (theme: Theme) => void;
@@ -36,6 +37,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   theme, 
   categories,
   currencyCategory,
+  imageConverterCategory,
   visibleCategories,
   onUpdateLanguage, 
   onUpdateTheme, 
@@ -55,7 +57,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
-  const allCategories = [currencyCategory, ...categories];
+  const allCategories = [currencyCategory, imageConverterCategory, ...categories];
 
   return (
     <motion.div 

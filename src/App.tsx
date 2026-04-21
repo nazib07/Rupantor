@@ -7,11 +7,12 @@ import ConversionScreen from './components/ConversionScreen';
 import HistoryScreen from './components/HistoryScreen';
 import SettingsScreen from './components/SettingsScreen';
 import AdminScreen from './components/AdminScreen';
+import ImageConverterScreen from './components/ImageConverterScreen';
 import { Category, Language, Theme, Unit } from './types';
 import { fetchCategories, getVisibleCategories, saveVisibleCategories } from './services/unitService';
 import { App as CapApp } from '@capacitor/app';
 
-type Screen = 'splash' | 'home' | 'conversion' | 'history' | 'settings' | 'admin';
+type Screen = 'splash' | 'home' | 'conversion' | 'history' | 'settings' | 'admin' | 'image-converter';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
@@ -32,6 +33,14 @@ export default function App() {
     order: -1
   };
 
+  const IMAGE_CONVERTER_CATEGORY: Category = {
+    id: 'image-converter',
+    nameEn: 'Image Converter',
+    nameBn: 'ছবি রূপান্তর',
+    iconName: 'Image',
+    order: -0.5
+  };
+
   useEffect(() => {
     if (window.location.pathname === '/admin') {
       setCurrentScreen('admin');
@@ -42,11 +51,11 @@ export default function App() {
     try {
       const fetchedCats = await fetchCategories();
       // Filter out any Firestore category named "Currency" to avoid duplicates
-      const filteredCats = fetchedCats.filter(c => c.nameEn.toLowerCase() !== 'currency' && c.id !== 'currency');
+      const filteredCats = fetchedCats.filter(c => c.nameEn.toLowerCase() !== 'currency' && c.id !== 'currency' && c.id !== 'image-converter');
       setCategories(filteredCats);
       
       // Initialize visible categories
-      const allPossibleIds = [CURRENCY_CATEGORY.id, ...filteredCats.map(c => c.id)];
+      const allPossibleIds = [CURRENCY_CATEGORY.id, IMAGE_CONVERTER_CATEGORY.id, ...filteredCats.map(c => c.id)];
 
       // Load saved selection from local Dexie DB
       const savedIds = deviceId ? await getVisibleCategories(deviceId) : null;
@@ -215,10 +224,20 @@ export default function App() {
             language={language}
             categories={categories}
             currencyCategory={CURRENCY_CATEGORY}
+            imageConverterCategory={IMAGE_CONVERTER_CATEGORY}
             visibleCategories={visibleCategories}
             onSelectCategory={handleSelectCategory}
             onShowHistory={() => setCurrentScreen('history')}
             onShowSettings={() => setCurrentScreen('settings')}
+            onShowImageConverter={() => setCurrentScreen('image-converter')}
+          />
+        )}
+
+        {currentScreen === 'image-converter' && (
+          <ImageConverterScreen 
+            key="image-converter"
+            language={language}
+            onBack={handleBack}
           />
         )}
 
@@ -250,6 +269,7 @@ export default function App() {
             theme={theme}
             categories={categories}
             currencyCategory={CURRENCY_CATEGORY}
+            imageConverterCategory={IMAGE_CONVERTER_CATEGORY}
             visibleCategories={visibleCategories}
             onUpdateLanguage={setLanguage}
             onUpdateTheme={setTheme}
