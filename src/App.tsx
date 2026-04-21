@@ -8,7 +8,7 @@ import HistoryScreen from './components/HistoryScreen';
 import SettingsScreen from './components/SettingsScreen';
 import AdminScreen from './components/AdminScreen';
 import { Category, Language, Theme, Unit } from './types';
-import { fetchCategories } from './services/unitService';
+import { fetchCategories, getVisibleCategories, saveVisibleCategories } from './services/unitService';
 import { App as CapApp } from '@capacitor/app';
 
 type Screen = 'splash' | 'home' | 'conversion' | 'history' | 'settings' | 'admin';
@@ -36,7 +36,6 @@ export default function App() {
     if (window.location.pathname === '/admin') {
       setCurrentScreen('admin');
     }
-    loadCategories();
   }, []);
 
   const loadCategories = async () => {
@@ -47,24 +46,21 @@ export default function App() {
       setCategories(filteredCats);
       
       // Initialize visible categories
-      const savedVisible = localStorage.getItem('rupantor_visible_categories');
       const allPossibleIds = [CURRENCY_CATEGORY.id, ...filteredCats.map(c => c.id)];
 
-      if (savedVisible) {
-        try {
-          const savedIds = JSON.parse(savedVisible);
-          // Keep saved preferences but add any newly created categories from admin
-          const newIds = allPossibleIds.filter(id => !savedIds.includes(id));
-          
-          // Filter out IDs that no longer exist
-          const validSavedIds = savedIds.filter((id: string) => allPossibleIds.includes(id));
-          
-          setVisibleCategories([...validSavedIds, ...newIds]);
-        } catch (e) {
-          setVisibleCategories(allPossibleIds);
-        }
+      // Load saved selection from local Dexie DB
+      const savedIds = deviceId ? await getVisibleCategories(deviceId) : null;
+      if (savedIds !== null) {
+        // Keep only saved IDs that still exist in latest fetched categories.
+        // Do not auto-add categories that user previously disabled.
+        const validSavedIds = savedIds.filter((id: string) => allPossibleIds.includes(id));
+        setVisibleCategories(validSavedIds);
       } else {
+        // First-time users: show all categories by default, then persist.
         setVisibleCategories(allPossibleIds);
+        if (deviceId) {
+          await saveVisibleCategories(deviceId, allPossibleIds);
+        }
       }
     } catch (error) {
       console.error('Failed to load categories', error);
@@ -87,8 +83,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('rupantor_visible_categories', JSON.stringify(visibleCategories));
-  }, [visibleCategories]);
+    // Only persist when we have a deviceId and a non-empty selection.
+    if (!deviceId || visibleCategories.length === 0) return;
+    saveVisibleCategories(deviceId, visibleCategories).catch((e) => {
+      console.error('Failed to save visible categories', e);
+    });
+  }, [visibleCategories, deviceId]);
+
+  useEffect(() => {
+    // Load categories only after deviceId is available (needed for settings lookup).
+    if (!deviceId) return;
+    loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceId]);
 
   useEffect(() => {
     console.log('Theme changed to:', theme);

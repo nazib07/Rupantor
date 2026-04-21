@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { db_local } from '../db';
-import { Unit, HistoryItem, CategoryType, Category } from '../types';
+import { Unit, HistoryItem, CategoryType, Category, VisibleCategoriesSettings } from '../types';
 
 const UNITS_COLLECTION = 'units';
 const CATEGORIES_COLLECTION = 'categories';
@@ -186,4 +186,28 @@ export const convert = (value: number, from: Unit, to: Unit): number => {
   // Standard conversion: Input -> Base -> Output
   const baseValue = value * from.multiplier;
   return baseValue / to.multiplier;
+};
+
+// UI Settings (stored locally via Dexie)
+export const getVisibleCategories = async (deviceId: string): Promise<string[] | null> => {
+  try {
+    const row = await db_local.settings.get(deviceId);
+    return row?.visibleCategories ?? null;
+  } catch (error) {
+    console.error('Failed to get visible categories', error);
+    return null;
+  }
+};
+
+export const saveVisibleCategories = async (deviceId: string, visibleCategories: string[]): Promise<void> => {
+  try {
+    const payload: VisibleCategoriesSettings = {
+      deviceId,
+      visibleCategories,
+      updatedAt: new Date(),
+    };
+    await db_local.settings.put(payload);
+  } catch (error) {
+    console.error('Failed to save visible categories', error);
+  }
 };

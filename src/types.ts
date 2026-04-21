@@ -36,3 +36,9 @@ export interface HistoryItem {
   category: string;
   timestamp: any;
 }
+
+export interface VisibleCategoriesSettings {
+  deviceId: string;
+  visibleCategories: string[];
+  updatedAt: any;
+}

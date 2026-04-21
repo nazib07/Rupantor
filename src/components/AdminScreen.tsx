@@ -36,7 +36,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-const ADMIN_EMAIL = 'nazib.cse@gmail.com';
+const ADMIN_EMAIL = 'dotknot.app@gmail.com';
 
 // Filter out non-component exports if any, and keep only icons
 const ICON_MAP: Record<string, any> = Object.entries(LucideIcons).reduce((acc, [name, Icon]) => {
@@ -222,7 +222,7 @@ export default function AdminScreen() {
         </div>
         <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Admin Access</h1>
         <p className="text-gray-500 dark:text-gray-400 mb-8 text-center max-w-xs">
-          Please sign in with nazib.cse@gmail.com to access the admin dashboard.
+          Please sign in with dotknot.app@gmail.com to access the admin dashboard.
         </p>
         
         {loginError && (
