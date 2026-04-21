@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Home, FileImage, Upload, Download, RefreshCw, CheckCircle2, X, Crop, MousePointer2, Layers, Sliders, Eraser } from 'lucide-react';
 import ReactCrop, { Crop as CropType, PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Language } from '../types';
@@ -41,8 +42,34 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
   };
 
   const handleSelectClick = async () => {
-    const hasPermission = await requestPermissions();
-    if (hasPermission) {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const image = await Camera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Uri,
+          source: CameraSource.Photos // Force gallery for "selection"
+        });
+
+        if (image.webPath) {
+          const response = await fetch(image.webPath);
+          const blob = await response.blob();
+          const selectedFile = new File([blob], `image.${image.format}`, { type: blob.type });
+          
+          setFile(selectedFile);
+          const url = URL.createObjectURL(selectedFile);
+          setOriginalUrl(url);
+          setResultUrl(null);
+          setError(null);
+          setMode('convert');
+          resetEdits();
+        }
+      } catch (err) {
+        console.error('Camera error:', err);
+        // Error usually means user cancelled
+      }
+    } else {
+      // Browser fallback
       document.getElementById('file-input')?.click();
     }
   };
