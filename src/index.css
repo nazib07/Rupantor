@@ -67,3 +67,24 @@
   background: rgba(11, 17, 32, 0.8);
   border: 1px solid rgba(108, 99, 255, 0.2);
 }
+
+/* ReactCrop Fixes */
+.ReactCrop {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+}
+
+.ReactCrop__child-wrapper {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+}
+
+.ReactCrop__crop-selection {
+  border: 2px solid #6C63FF !important;
+}
+
+.dark .ReactCrop__crop-selection {
+  border-color: #6C63FF !important;
+}

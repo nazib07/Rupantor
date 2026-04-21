@@ -22,6 +22,7 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   const requestPermissions = async () => {
     if (Capacitor.isNativePlatform()) {
@@ -39,6 +40,24 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
       }
     }
     return true;
+  };
+
+  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height } = e.currentTarget;
+    const initialCrop = centerCrop(
+      makeAspectCrop(
+        {
+          unit: '%',
+          width: 90,
+        },
+        undefined, // no aspect ratio constraint
+        width,
+        height
+      ),
+      width,
+      height
+    );
+    setCrop(initialCrop);
   };
 
   const handleSelectClick = async () => {
@@ -151,13 +170,22 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
         let sourceWidth = img.width;
         let sourceHeight = img.height;
 
-        if (completedCrop) {
-          const scaleX = img.naturalWidth / img.width;
-          const scaleY = img.naturalHeight / img.height;
+        if (completedCrop && imgRef.current) {
+          const scaleX = img.naturalWidth / imgRef.current.width;
+          const scaleY = img.naturalHeight / imgRef.current.height;
           sourceX = completedCrop.x * scaleX;
           sourceY = completedCrop.y * scaleY;
           sourceWidth = completedCrop.width * scaleX;
           sourceHeight = completedCrop.height * scaleY;
+          
+          if (sourceWidth <= 0 || sourceHeight <= 0) {
+            // Fallback if crop is invalid
+            sourceX = 0;
+            sourceY = 0;
+            sourceWidth = img.naturalWidth;
+            sourceHeight = img.naturalHeight;
+          }
+
           width = sourceWidth;
           height = sourceHeight;
         }
@@ -228,13 +256,17 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
           const base64data = reader.result as string;
           const fileName = `processed-${Date.now()}.${targetFormat}`;
           
+          // Strip the "data:image/...;base64," prefix
+          const base64Body = base64data.split(',')[1];
+          
           await Filesystem.writeFile({
             path: fileName,
-            data: base64data,
+            data: base64Body,
             directory: Directory.Documents,
           });
           
-          alert(language === 'bn' ? `ছবিটি সফলভাবে সংরক্ষিত হয়েছে: ${fileName}` : `Image saved successfully as ${fileName}`);
+          setSaveSuccess(language === 'bn' ? `ছবিটি সফলভাবে সংরক্ষিত হয়েছে` : `Image saved successfully`);
+          setTimeout(() => setSaveSuccess(null), 3000);
         };
         reader.readAsDataURL(blob);
       } catch (err) {
@@ -255,7 +287,8 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
   const removeBackground = async () => {
     // This is a naive "color key" or "magic wand" approach for offline
     // Since complex AI is too large for this local app, we provide a placeholder or basic implement
-    alert(language === 'bn' ? 'অফলাইন ব্যাকগ্রাউন্ড রিমুভাল বর্তমানে সীমিত। নিখুঁত রেজাল্টের জন্য এআই টুল ব্যবহার করুন।' : 'Offline background removal is limited. For perfect results, use AI-powered tools.');
+    setError(language === 'bn' ? 'অফলাইন ব্যাকগ্রাউন্ড রিমুভাল বর্তমানে সীমিত।' : 'Offline background removal is currently limited.');
+    setTimeout(() => setError(null), 3000);
   };
 
   return (
@@ -281,6 +314,35 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
           <Home size={20} />
         </button>
       </div>
+
+      <AnimatePresence>
+        {saveSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="absolute top-28 left-0 right-0 z-50 flex justify-center px-6 pointer-events-none"
+          >
+            <div className="flex items-center gap-3 rounded-2xl bg-green-500 px-6 py-3 text-white shadow-xl shadow-green-500/20">
+              <CheckCircle2 size={20} />
+              <span className="font-bold">{saveSuccess}</span>
+            </div>
+          </motion.div>
+        )}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="absolute top-28 left-0 right-0 z-50 flex justify-center px-6 pointer-events-none"
+          >
+            <div className="flex items-center gap-3 rounded-2xl bg-red-500 px-6 py-3 text-white shadow-xl shadow-red-500/20">
+              <X size={20} />
+              <span className="font-bold">{error}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="mt-8 flex flex-1 flex-col px-6 max-w-4xl mx-auto w-full space-y-6 pb-24">
         {!file ? (
@@ -347,13 +409,15 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
                         crop={crop}
                         onChange={(c) => setCrop(c)}
                         onComplete={(c) => setCompletedCrop(c)}
+                        className="max-w-full"
                       >
                         <img 
                           ref={imgRef}
                           src={originalUrl || ''} 
                           alt="Edit" 
+                          onLoad={onImageLoad}
+                          className="max-h-[50vh] w-auto h-auto block select-none pointer-events-auto touch-none"
                           style={{ 
-                            maxHeight: '50vh',
                             filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)` 
                           }}
                         />
