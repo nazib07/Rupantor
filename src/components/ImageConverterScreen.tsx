@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Home, FileImage, Upload, Download, RefreshCw, CheckCircle2, X, Crop, MousePointer2, Layers, Sliders, Eraser } from 'lucide-react';
 import ReactCrop, { Crop as CropType, PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Language } from '../types';
 import { translations } from '../constants/translations';
@@ -19,6 +21,31 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const requestPermissions = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const permission = await Filesystem.checkPermissions();
+        if (permission.publicStorage !== 'granted') {
+          const result = await Filesystem.requestPermissions();
+          if (result.publicStorage !== 'granted') {
+            setError(language === 'bn' ? 'ফাইল অ্যাক্সেস করার অনুমতি প্রয়োজন' : 'Storage permission is required to access files');
+            return false;
+          }
+        }
+      } catch (err) {
+        console.error('Error checking permissions:', err);
+      }
+    }
+    return true;
+  };
+
+  const handleSelectClick = async () => {
+    const hasPermission = await requestPermissions();
+    if (hasPermission) {
+      document.getElementById('file-input')?.click();
+    }
+  };
   
   // Editing states
   const [mode, setMode] = useState<'convert' | 'edit'>('convert');
@@ -157,6 +184,47 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
     }
   };
 
+  const handleDownload = async () => {
+    if (!resultUrl || !file) return;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const hasPermission = await requestPermissions();
+        if (!hasPermission) return;
+
+        // Convert blob URL to base64 for Filesystem
+        const response = await fetch(resultUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        
+        reader.onloadend = async () => {
+          const base64data = reader.result as string;
+          const fileName = `processed-${Date.now()}.${targetFormat}`;
+          
+          await Filesystem.writeFile({
+            path: fileName,
+            data: base64data,
+            directory: Directory.Documents,
+          });
+          
+          alert(language === 'bn' ? `ছবিটি সফলভাবে সংরক্ষিত হয়েছে: ${fileName}` : `Image saved successfully as ${fileName}`);
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        console.error('Save error:', err);
+        setError(language === 'bn' ? 'সংরক্ষণ করতে ব্যর্থ হয়েছে' : 'Failed to save image');
+      }
+    } else {
+      // Browser download
+      const link = document.createElement('a');
+      link.href = resultUrl;
+      link.download = `processed-${file.name.split('.')[0]}.${targetFormat}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   const removeBackground = async () => {
     // This is a naive "color key" or "magic wand" approach for offline
     // Since complex AI is too large for this local app, we provide a placeholder or basic implement
@@ -192,7 +260,7 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
           <div 
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            onClick={() => document.getElementById('file-input')?.click()}
+            onClick={handleSelectClick}
             className="flex-1 relative border-2 border-dashed border-gray-200 dark:border-border-dark bg-gray-50 dark:bg-secondary-dark rounded-[2rem] p-10 flex flex-col items-center justify-center transition-all cursor-pointer hover:border-[#6C63FF]/30"
           >
             <input 
@@ -291,7 +359,13 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
 
               {!resultUrl && (
                 <button 
-                  onClick={() => { setFile(null); setOriginalUrl(null); }}
+                  onClick={() => { 
+                    setFile(null); 
+                    setOriginalUrl(null); 
+                    if (document.getElementById('file-input')) {
+                      (document.getElementById('file-input') as HTMLInputElement).value = '';
+                    }
+                  }}
                   className="absolute top-4 right-4 p-2 bg-white/80 dark:bg-black/40 backdrop-blur-sm shadow-md rounded-full text-red-500 transition-transform active:scale-90"
                 >
                   <X size={20} />
@@ -458,19 +532,25 @@ const ImageConverterScreen: React.FC<ImageConverterScreenProps> = ({ language, o
                   className="flex gap-4"
                 >
                   <button
-                    onClick={() => { setFile(null); setOriginalUrl(null); setResultUrl(null); }}
+                    onClick={() => { 
+                      setFile(null); 
+                      setOriginalUrl(null); 
+                      setResultUrl(null);
+                      if (document.getElementById('file-input')) {
+                        (document.getElementById('file-input') as HTMLInputElement).value = '';
+                      }
+                    }}
                     className="flex-1 py-5 bg-gray-100 dark:bg-secondary-dark text-gray-700 dark:text-gray-300 font-bold rounded-2xl active:scale-95 transition-transform"
                   >
                     {language === 'bn' ? 'নতুন ছবি' : 'New Image'}
                   </button>
-                  <a
-                    href={resultUrl}
-                    download={`processed-${file?.name.split('.')[0]}.${targetFormat}`}
+                  <button
+                    onClick={handleDownload}
                     className="flex-1 py-5 bg-[#6C63FF] text-white font-bold rounded-2xl shadow-xl shadow-[#6C63FF]/20 flex items-center justify-center gap-2 active:scale-95 transition-transform text-center"
                   >
                     <Download size={22} />
                     {t.download}
-                  </a>
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
